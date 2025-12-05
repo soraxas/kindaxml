@@ -1,10 +1,8 @@
-# KindaXML (`kindaxml`) — close-enough, XML-ish markup for LLM output
+# `kindaxml`, a close-enough, XML-ish markup for LLM output
 
 KindaXML is an **XML-inspired annotation DSL** designed for **LLM-generated text**. It keeps the familiar `<tag attr=...>` shape, but the parser is **tolerant**: it recovers from missing end tags, missing quotes, and other common “almost XML” mistakes.
 
 KindaXML is **not XML** (and not meant to be parsed by strict XML parsers). Think: *well-formed-ish*.
-
----
 
 ## Why KindaXML?
 
@@ -14,8 +12,6 @@ LLMs are good at emitting XML-like text, but strict XML breaks easily. KindaXML 
 * **Deterministic recovery**: malformed input still produces predictable output.
 * **Annotation-first**: tags annotate spans of text rather than building a complex DOM.
 * **Configurable**: recognized tags are whitelisted, unknown tags can be stripped or preserved.
-
----
 
 ## Design: Annotation DSL (Option A) + a pinch of “blocks”
 
@@ -30,8 +26,6 @@ KindaXML’s primary output is a **stream of text segments**, each optionally an
 ```
 
 KindaXML intentionally avoids deep nesting. In fact, it auto-closes open tags when the next tag begins, which keeps structures shallow and robust.
-
----
 
 ## Syntax overview
 
@@ -56,8 +50,6 @@ Supported forms:
 * `a=x` (unquoted)
 * `a` (boolean attribute; implies `true`)
 * Whitespace around `=` is allowed.
-
----
 
 ## Parsing rules (the “close enough” part)
 
@@ -101,8 +93,6 @@ If a tag never closes, it’s recovered according to its configured **span strat
 
 `<tag .../>` is treated as a **marker annotation** at that position (or optionally “annotate next token”, configurable).
 
----
-
 ## Span strategies (how KindaXML decides what a tag annotates)
 
 KindaXML is annotation-first. Each recognized tag can be configured with a span strategy:
@@ -130,8 +120,6 @@ The cite attaches to `We shipped last week` (not the punctuation).
 * `forward_next_token`: annotate the next token/word.
 * `noop`: ignore tag if unclosed (marker-only tags).
 
----
-
 ## Unknown tags
 
 You instruct the LLM to use a whitelist of recognized tags, but the parser can handle unknown tags in one of three modes:
@@ -139,8 +127,6 @@ You instruct the LLM to use a whitelist of recognized tags, but the parser can h
 * `strip` (default-friendly): drop unknown tag markup, keep inner text
 * `passthrough`: keep unknown tags as literal text
 * `treat_as_text`: don’t parse unknown tags at all; treat `<...>` as text
-
----
 
 ## Escaping / literal text (CDATA support)
 
@@ -162,8 +148,6 @@ Use < and > freely here. Even <fake tags>.
 If `]]>` is missing, CDATA runs to end-of-document (recovered).
 
 (If you prefer simpler escaping, you can also support `\<` and `\>` as literals.)
-
----
 
 ## Using the Rust crate
 
@@ -213,8 +197,6 @@ result = parse("We shipped <cite id=1>last week</cite>.", cfg)
 `ParserConfig` setters roughly mirror the Rust config: per-tag recovery strategies (`retro_line`, `forward_until_tag`, `forward_until_newline`, `forward_next_token`, `noop`), punctuation trimming, auto-close toggles, and case sensitivity.
 
 `ParserConfig` exposes toggles for unknown tags, per-tag recovery strategies, case sensitivity, punctuation trimming, and auto-close behavior. The default config is conservative and strips unknown tags.
-
----
 
 ## Examples
 
@@ -269,8 +251,6 @@ alpha <note>bravo <cite id=9> charlie
 * `<note>` auto-closes before `<cite ...>`
 * `<cite>` is unclosed and recovered by its strategy
 
----
-
 ## Failure cases / limitations (by design)
 
 ### Nesting will not behave like XML
@@ -302,8 +282,6 @@ KindaXML will recover by closing the quote at `>` and treat the entire remaining
 ### Stray end tags
 
 Because auto-close flattens structure, you may get stray `</tag>`. By default, recognized stray end tags are dropped; unknown ones can be passed through (configurable).
-
----
 
 ## Recommended prompting style for LLMs
 
