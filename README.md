@@ -185,6 +185,33 @@ fn main() {
 }
 ```
 
+## Python bindings
+
+The Python module is built with `maturin` (`--features python`). Basic usage:
+
+```python
+from kindaxml import parse
+
+result = parse("We shipped <cite id=1>last week</cite>.")
+print(result.text)
+```
+
+To customize parsing, pass a `ParserConfig`:
+
+```python
+from kindaxml import parse, ParserConfig
+
+cfg = ParserConfig()
+cfg.set_recognized_tags(["cite", "note", "todo"])
+cfg.set_unknown_mode("strip")  # or passthrough / treat_as_text
+cfg.set_recovery_strategy("cite", "retro_line")
+cfg.set_autoclose_on_any_tag(True)
+
+result = parse("We shipped <cite id=1>last week</cite>.", cfg)
+```
+
+`ParserConfig` setters roughly mirror the Rust config: per-tag recovery strategies (`retro_line`, `forward_until_tag`, `forward_until_newline`, `forward_next_token`, `noop`), punctuation trimming, auto-close toggles, and case sensitivity.
+
 `ParserConfig` exposes toggles for unknown tags, per-tag recovery strategies, case sensitivity, punctuation trimming, and auto-close behavior. The default config is conservative and strips unknown tags.
 
 ---
