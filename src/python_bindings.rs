@@ -16,6 +16,10 @@ pub struct PyAnnotation {
 
 #[pymethods]
 impl PyAnnotation {
+    #[classattr]
+    const __doc__: &'static str =
+        "Annotation(tag: str, attrs: dict[str, bool | str]) -> annotation attached to a span.";
+
     #[getter]
     fn tag(&self) -> &str {
         &self.inner.tag
@@ -49,6 +53,9 @@ pub struct PySegment {
 
 #[pymethods]
 impl PySegment {
+    #[classattr]
+    const __doc__: &'static str = "Segment(text: str, annotations: list[Annotation]).";
+
     #[getter]
     fn text(&self) -> &str {
         &self.inner.text
@@ -86,6 +93,10 @@ pub struct PyMarker {
 
 #[pymethods]
 impl PyMarker {
+    #[classattr]
+    const __doc__: &'static str =
+        "Marker(pos: int, annotation: Annotation) from self-closing tags.";
+
     #[getter]
     fn pos(&self) -> usize {
         self.inner.pos
@@ -116,6 +127,10 @@ pub struct PyParseResult {
 
 #[pymethods]
 impl PyParseResult {
+    #[classattr]
+    const __doc__: &'static str =
+        "ParseResult(text: str, segments: list[Segment], markers: list[Marker]).";
+
     #[getter]
     fn text(&self) -> &str {
         &self.inner.text
@@ -177,6 +192,9 @@ pub struct PyParserConfig {
 
 #[pymethods]
 impl PyParserConfig {
+    #[classattr]
+    const __doc__: &'static str = "ParserConfig() -> mutable parser configuration.";
+
     #[new]
     pub fn new() -> Self {
         Self {
@@ -246,6 +264,7 @@ impl PyParserConfig {
 }
 
 #[pyfunction(name = "parse")]
+#[pyo3(text_signature = "(text, config=None)")]
 /// Parse KindaXML text using the default config (case-insensitive tags, cite retro, others forward).
 pub fn py_parse(
     py: Python<'_>,

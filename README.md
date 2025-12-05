@@ -196,6 +196,41 @@ result = parse("We shipped <cite id=1>last week</cite>.", cfg)
 
 `ParserConfig` setters roughly mirror the Rust config: per-tag recovery strategies (`retro_line`, `forward_until_tag`, `forward_until_newline`, `forward_next_token`, `noop`), punctuation trimming, auto-close toggles, and case sensitivity.
 
+### Full Python configuration example
+
+```python
+from kindaxml import parse, ParserConfig
+
+cfg = ParserConfig()
+# Only these tags are recognized
+cfg.set_recognized_tags(["cite", "note", "risk", "todo"])
+
+# Unknown tags: remove markup but keep inner text
+cfg.set_unknown_mode("strip")
+
+# Recovery strategies per tag
+cfg.set_recovery_strategy("cite", "retro_line")          # attach backward on the line
+cfg.set_recovery_strategy("note", "forward_until_newline")
+cfg.set_recovery_strategy("risk", "forward_next_token")
+
+# Auto-close behaviour
+cfg.set_autoclose_on_any_tag(True)    # close open tag when any new tag starts
+cfg.set_autoclose_on_same_tag(True)   # close when the same tag reappears
+
+# Misc toggles
+cfg.set_trim_punctuation(True)        # trim punctuation for retro spans
+cfg.set_case_sensitive_tags(False)    # treat tags case-insensitively
+
+text = "We shipped last week <cite id=1>. Risks: <risk level=high> perf"
+parsed = parse(text, cfg)
+
+print(parsed.text)  # tag-stripped text
+for seg in parsed.segments:
+    print(seg, seg.annotations)
+for marker in parsed.markers:
+    print(marker)
+```
+
 `ParserConfig` exposes toggles for unknown tags, per-tag recovery strategies, case sensitivity, punctuation trimming, and auto-close behavior. The default config is conservative and strips unknown tags.
 
 ## Examples
