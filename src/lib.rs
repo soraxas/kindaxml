@@ -1,3 +1,21 @@
+//! KindaXML: close-enough, XML-ish annotations for LLM output.
+//!
+//! Basic usage:
+//!
+//! ```
+//! use kindaxml::{parse, ParserConfig};
+//!
+//! let mut cfg = ParserConfig::default();
+//! cfg.recognized_tags = ["cite"].into_iter().map(String::from).collect();
+//! cfg.case_sensitive_tags = false;
+//!
+//! let parsed = parse("We shipped <cite id=1>last week</cite>.", &cfg);
+//! assert_eq!(parsed.text, "We shipped last week.");
+//! assert_eq!(parsed.segments[1].annotations[0].tag, "cite");
+//! ```
+//!
+//! See `ParserConfig` for knobs that control recovery and unknown tag handling.
+
 use std::collections::{HashMap, HashSet};
 
 #[cfg(feature = "python")]
@@ -68,13 +86,21 @@ pub enum StrayEndTagPolicy {
 /// Parser configuration controlling tag recognition and recovery.
 #[derive(Debug, Clone)]
 pub struct ParserConfig {
+    /// Whitelist of tags that should be parsed/annotated.
     pub recognized_tags: HashSet<String>,
+    /// Per-tag recovery overrides for unclosed tags.
     pub per_tag_recovery: HashMap<String, RecoveryStrategy>,
+    /// How to handle unknown tags.
     pub unknown_mode: UnknownMode,
+    /// If true, close open tags when encountering any new tag.
     pub autoclose_on_any_tag: bool,
+    /// If true, close open tags when seeing the same tag again.
     pub autoclose_on_same_tag: bool,
+    /// Trim punctuation/whitespace when retroactively selecting spans.
     pub trim_punctuation: bool,
+    /// Match tags with case sensitivity.
     pub case_sensitive_tags: bool,
+    /// What to do with stray end tags (no matching open).
     pub stray_end_tag_policy: StrayEndTagPolicy,
 }
 
