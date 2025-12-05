@@ -190,6 +190,12 @@ impl<'a> Parser<'a> {
 
             if bytes[idx] == b'<' {
                 if let Some((token, consumed)) = self.parse_tag(idx) {
+                    if self.should_treat_as_text(&token) {
+                        self.push_text(&token.raw);
+                        idx += consumed;
+                        continue;
+                    }
+
                     match token.kind {
                         TagKind::Start => {
                             if self.config.autoclose_on_any_tag {
@@ -537,6 +543,11 @@ impl<'a> Parser<'a> {
     fn is_recognized(&self, name: &str) -> bool {
         self.recognized.contains(name)
     }
+
+    fn should_treat_as_text(&self, token: &TagToken) -> bool {
+        matches!(self.config.unknown_mode, UnknownMode::TreatAsText)
+            && !self.is_recognized(&token.normalized_name)
+    }
 }
 
 fn parse_name_and_rest(input: &str) -> Option<(String, &str)> {
@@ -668,11 +679,29 @@ fn is_trim_char(ch: char) -> bool {
 mod tests {
     use super::*;
 
+    fn annotated_texts(result: &ParseResult, tag: &str) -> Vec<String> {
+        result
+            .segments
+            .iter()
+            .filter(|seg| seg.annotations.iter().any(|a| a.tag == tag))
+            .map(|seg| seg.text.clone())
+            .collect()
+    }
+
     fn base_config() -> ParserConfig {
         let mut cfg = ParserConfig::default();
-        cfg.recognized_tags = ["cite", "note", "risk"].iter().map(|s| s.to_string()).collect();
+        cfg.recognized_tags = ["cite", "note", "todo", "claim", "risk", "code"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         cfg.trim_punctuation = true;
         cfg.case_sensitive_tags = false;
+        cfg.per_tag_recovery
+            .insert("cite".into(), RecoveryStrategy::RetroLine);
+        for tag in ["note", "todo", "claim", "risk", "code"] {
+            cfg.per_tag_recovery
+                .insert(tag.into(), RecoveryStrategy::ForwardUntilTag);
+        }
         cfg
     }
 
@@ -734,5 +763,244 @@ mod tests {
         let cfg = base_config();
         let result = parse("<note><![CDATA[Use < and > freely here]]></note>", &cfg);
         assert!(result.text.contains("< and >"));
+    }
+
+    #[test]
+    fn treat_as_text_does_not_autoclose_known_tags() {
+        let mut cfg = base_config();
+        cfg.unknown_mode = UnknownMode::TreatAsText;
+
+        let result = parse(
+            "Risks: <risk level=high>delays <mystery>??</mystery> persist",
+            &cfg,
+        );
+
+        assert_eq!(
+            result.text,
+            "Risks: delays <mystery>??</mystery> persist"
+        );
+
+        let risk_segment = result
+            .segments
+            .iter()
+            .find(|s| s.annotations.iter().any(|a| a.tag == "risk"))
+            .expect("risk segment");
+        assert_eq!(
+            risk_segment.text,
+            "delays <mystery>??</mystery> persist"
+        );
+
+        let ann = risk_segment
+            .annotations
+            .iter()
+            .find(|a| a.tag == "risk")
+            .unwrap();
+        assert_eq!(
+            ann.attrs.get("level"),
+            Some(&AttrValue::Str("high".into()))
+        );
+    }
+
+    #[test]
+    fn parses_multiple_attributes_and_quotes() {
+        let cfg = base_config();
+        let result = parse(
+            "<claim id=7 confidence=0.62 source='internal'>It works.</claim>",
+            &cfg,
+        );
+        assert_eq!(result.text, "It works.");
+        let claim = annotated_texts(&result, "claim");
+        assert_eq!(claim, vec!["It works."]);
+        let attrs = &result.segments[0].annotations[0].attrs;
+        assert_eq!(attrs.get("id"), Some(&AttrValue::Str("7".into())));
+        assert_eq!(
+            attrs.get("confidence"),
+            Some(&AttrValue::Str("0.62".into()))
+        );
+        assert_eq!(
+            attrs.get("source"),
+            Some(&AttrValue::Str("internal".into()))
+        );
+    }
+
+    #[test]
+    fn boolean_attribute() {
+        let cfg = base_config();
+        let result = parse("<todo urgent>Fix flaky test</todo>", &cfg);
+        assert_eq!(result.text, "Fix flaky test");
+        let todo = annotated_texts(&result, "todo");
+        assert_eq!(todo, vec!["Fix flaky test"]);
+        let attrs = &result.segments[0].annotations[0].attrs;
+        assert_eq!(attrs.get("urgent"), Some(&AttrValue::Bool(true)));
+    }
+
+    #[test]
+    fn adjacent_tags_keep_spans() {
+        let cfg = base_config();
+        let result = parse("<cite id=1>A</cite><cite id=2>B</cite>", &cfg);
+        assert_eq!(result.text, "AB");
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites, vec!["A", "B"]);
+    }
+
+    #[test]
+    fn self_closing_marker_emits_marker() {
+        let cfg = base_config();
+        let result = parse("Start <todo id=3/> end", &cfg);
+        assert_eq!(result.text, "Start  end");
+        assert_eq!(result.markers.len(), 1);
+        let marker = &result.markers[0];
+        assert_eq!(marker.pos, "Start ".len());
+        assert_eq!(marker.annotation.tag, "todo");
+        assert_eq!(
+            marker.annotation.attrs.get("id"),
+            Some(&AttrValue::Str("3".into()))
+        );
+    }
+
+    #[test]
+    fn cdata_literal_in_code() {
+        let cfg = base_config();
+        let result =
+            parse("<code><![CDATA[if (a < b) { return a > 0; }]]></code>", &cfg);
+        assert_eq!(result.text, "if (a < b) { return a > 0; }");
+        let code = annotated_texts(&result, "code");
+        assert_eq!(code, vec!["if (a < b) { return a > 0; }"]);
+    }
+
+    #[test]
+    fn postfix_cite_retro_line() {
+        let cfg = base_config();
+        let result = parse("We shipped last week <cite id=1>.", &cfg);
+        assert_eq!(result.text, "We shipped last week .");
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites, vec!["We shipped last week"]);
+        assert_eq!(result.segments.last().unwrap().text, " .");
+    }
+
+    #[test]
+    fn retro_line_respects_newline_anchor() {
+        let cfg = base_config();
+        let result = parse("## Results\nWe shipped last week <cite id=1>.", &cfg);
+        assert_eq!(result.text, "## Results\nWe shipped last week .");
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites, vec!["We shipped last week"]);
+    }
+
+    #[test]
+    fn retro_line_trims_punctuation() {
+        let cfg = base_config();
+        let result = parse("We shipped last week, <cite id=1>", &cfg);
+        assert_eq!(result.text, "We shipped last week, ");
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites, vec!["We shipped last week"]);
+    }
+
+    #[test]
+    fn unclosed_cite_at_end_of_doc() {
+        let cfg = base_config();
+        let result = parse("We shipped last week <cite id=1>", &cfg);
+        assert_eq!(result.text, "We shipped last week ");
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites, vec!["We shipped last week"]);
+    }
+
+    #[test]
+    fn unclosed_todo_can_result_in_empty_span() {
+        let cfg = base_config();
+        let result = parse("Fix this please <todo urgent>\nthanks", &cfg);
+        assert_eq!(result.text, "Fix this please \nthanks");
+        assert!(annotated_texts(&result, "todo").is_empty());
+    }
+
+    #[test]
+    fn auto_close_flattens_tags() {
+        let cfg = base_config();
+        let result = parse("Alpha <note>bravo <cite id=9> charlie", &cfg);
+        assert_eq!(result.text, "Alpha bravo  charlie");
+        let note = annotated_texts(&result, "note");
+        assert_eq!(note, vec!["bravo"]);
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites.join(""), "Alpha bravo");
+    }
+
+    #[test]
+    fn unquoted_and_broken_quotes_recover() {
+        let cfg = base_config();
+        let one = parse("<cite id=1>Evidence</cite>", &cfg);
+        let ann = one.segments[0].annotations[0].attrs.get("id");
+        assert_eq!(ann, Some(&AttrValue::Str("1".into())));
+
+        let broken_single = parse("<cite id='1,2>Evidence</cite>", &cfg);
+        let ann = broken_single.segments[0].annotations[0].attrs.get("id");
+        assert_eq!(ann, Some(&AttrValue::Str("1,2".into())));
+
+        let broken_double = parse("<cite id=\"3>Evidence</cite>", &cfg);
+        let ann = broken_double.segments[0].annotations[0].attrs.get("id");
+        assert_eq!(ann, Some(&AttrValue::Str("3".into())));
+    }
+
+    #[test]
+    fn duplicate_attrs_last_wins() {
+        let cfg = base_config();
+        let result = parse("<cite id=1 id=2>Evidence</cite>", &cfg);
+        let ann = result.segments[0].annotations[0].attrs.get("id");
+        assert_eq!(ann, Some(&AttrValue::Str("2".into())));
+    }
+
+    #[test]
+    fn boolean_attr_without_value() {
+        let cfg = base_config();
+        let result = parse("<cite id>Evidence</cite>", &cfg);
+        let ann = result.segments[0].annotations[0].attrs.get("id");
+        assert_eq!(ann, Some(&AttrValue::Bool(true)));
+    }
+
+    #[test]
+    fn missing_gt_treated_as_text() {
+        let cfg = base_config();
+        let result = parse("We shipped <cite id=1\nyesterday.", &cfg);
+        assert!(result.text.contains("<cite id=1\n"));
+        assert!(annotated_texts(&result, "cite").is_empty());
+    }
+
+    #[test]
+    fn unknown_tag_stripped_inner_preserved() {
+        let cfg = base_config();
+        let result = parse("Hello <weird x=1>world</weird>!", &cfg);
+        assert_eq!(result.text, "Hello world!");
+        assert!(result
+            .segments
+            .iter()
+            .all(|s| s.annotations.iter().all(|a| a.tag != "weird")));
+    }
+
+    #[test]
+    fn reopening_same_tag_flattens() {
+        let cfg = base_config();
+        let result = parse("<cite id=1>One <cite id=2>Two</cite>", &cfg);
+        assert_eq!(result.text, "One Two");
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites, vec!["Two"]);
+    }
+
+    #[test]
+    fn stray_closer_dropped_before_unclosed_tag() {
+        let cfg = base_config();
+        let result = parse("We shipped last week</cite><cite id=1>.", &cfg);
+        assert_eq!(result.text, "We shipped last week.");
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites, vec!["We shipped last week"]);
+    }
+
+    #[test]
+    fn unclosed_cdata_runs_to_end_of_doc() {
+        let mut cfg = base_config();
+        cfg.per_tag_recovery
+            .insert("code".into(), RecoveryStrategy::ForwardUntilTag);
+        let result = parse("<code><![CDATA[if (a < b) return;]]", &cfg);
+        assert_eq!(result.text, "if (a < b) return;]]");
+        let code = annotated_texts(&result, "code");
+        assert_eq!(code, vec!["if (a < b) return;]]"]);
     }
 }
