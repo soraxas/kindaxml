@@ -63,11 +63,14 @@ fn main() {
 }
 
 fn build_config() -> ParserConfig {
-    let mut cfg = ParserConfig::default();
-    cfg.recognized_tags = ["cite", "note", "risk", "todo"]
+    let recognized_tags = ["cite", "note", "risk", "todo"]
         .into_iter()
         .map(String::from)
         .collect::<HashSet<_>>();
+    let mut cfg = ParserConfig {
+        recognized_tags,
+        ..ParserConfig::default()
+    };
     cfg.per_tag_recovery
         .insert("cite".into(), RecoveryStrategy::RetroLine);
     cfg.per_tag_recovery

@@ -8,7 +8,7 @@ name = "kindaxml"
 crate-type = ["rlib", "cdylib"]
 
 [features]
-default = ["python"]
+default = []
 python = ["pyo3"]
 
 [dependencies]

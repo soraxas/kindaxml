@@ -407,4 +407,3 @@ Tell the LLM:
 * `trim_punctuation: bool`
 * `case_sensitive_tags: bool`
 * `stray_end_tag_policy: {"drop","passthrough"}`
-
