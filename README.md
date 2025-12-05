@@ -165,6 +165,30 @@ If `]]>` is missing, CDATA runs to end-of-document (recovered).
 
 ---
 
+## Using the Rust crate
+
+```rust
+use kindaxml::{parse, ParserConfig, UnknownMode};
+
+fn main() {
+    let mut cfg = ParserConfig::default();
+    cfg.recognized_tags = ["cite", "note"].into_iter().map(String::from).collect();
+    cfg.case_sensitive_tags = false;
+    cfg.unknown_mode = UnknownMode::Strip;
+
+    let input = "We shipped <cite id=1>last week</cite>.";
+    let parsed = parse(input, &cfg);
+
+    for segment in parsed.segments {
+        println!("{:?} -> {:?}", segment.text, segment.annotations);
+    }
+}
+```
+
+`ParserConfig` exposes toggles for unknown tags, per-tag recovery strategies, case sensitivity, punctuation trimming, and auto-close behavior. The default config is conservative and strips unknown tags.
+
+---
+
 ## Examples
 
 ### Closed tag (inline span)
@@ -260,4 +284,3 @@ Tell the model:
 * Do **not** nest tags
 * Prefer postfix citations: `... statement <cite id=1>.`
 * Use CDATA for code or text with `<`/`>`: `<![CDATA[ ... ]]>`
-
