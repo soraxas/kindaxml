@@ -118,7 +118,7 @@ pub fn py_parse(py: Python<'_>, input: &str) -> PyResult<PyObject> {
 }
 
 #[pymodule]
-#[pyo3(name = "_lib_name")]
+#[pyo3(name = "_kindaxml_rs")]
 pub fn python_module(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyParseResult>()?;
     m.add_class::<PySegment>()?;

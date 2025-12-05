@@ -4,7 +4,9 @@ from kindaxml import parse
 
 
 def main() -> None:
-    result = parse("We shipped <cite id=1>last week</cite>.")
+    input_text = "We shipped <cite id=1>last week</cite>."
+    result = parse(input_text)
+    print("Original:", input_text)
     print("Text:", result.text)
     for segment in result.segments:
         ann_tags = [a.tag for a in segment.annotations]

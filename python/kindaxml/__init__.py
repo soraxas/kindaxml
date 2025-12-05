@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Union
 
-from ._lib_name import Annotation, Marker, ParseResult, Segment, parse as _parse
+from . import _kindaxml_rs as kindaxml_rs
 
 __all__ = [
     "parse",
-    "PyAnnotation",
-    "PySegment",
-    "PyMarker",
-    "PyParseResult",
+    "Annotation",
+    "Segment",
+    "Marker",
+    "ParseResult",
     "Annotation",
     "Segment",
     "Marker",
@@ -18,48 +17,49 @@ __all__ = [
 ]
 
 
-AttrValue = Union[bool, str]
+AttrValue = bool | str
 
 
 @dataclass
-class PyAnnotation:
+class Annotation:
     tag: str
-    attrs: Dict[str, AttrValue]
+    attrs: dict[str, AttrValue]
 
 
 @dataclass
-class PySegment:
+class Segment:
     text: str
-    annotations: List[PyAnnotation]
+    annotations: list[Annotation]
 
 
 @dataclass
-class PyMarker:
+class Marker:
     pos: int
-    annotation: PyAnnotation
+    annotation: Annotation
 
 
 @dataclass
-class PyParseResult:
+class ParseResult:
     text: str
-    segments: List[PySegment]
-    markers: List[PyMarker]
+    segments: list[Segment]
+    markers: list[Marker]
 
     @classmethod
-    def from_native(cls, native: ParseResult) -> "PyParseResult":
+    def from_native(cls, native: kindaxml_rs.ParseResult) -> "ParseResult":
+        """Convert from native Rust ParseResult to typed Python ParseResult."""
         segs = [
-            PySegment(
+            Segment(
                 text=s.text,
                 annotations=[
-                    PyAnnotation(tag=a.tag, attrs=dict(a.attrs)) for a in s.annotations
+                    Annotation(tag=a.tag, attrs=dict(a.attrs)) for a in s.annotations
                 ],
             )
             for s in native.segments
         ]
         markers = [
-            PyMarker(
+            Marker(
                 pos=m.pos,
-                annotation=PyAnnotation(
+                annotation=Annotation(
                     tag=m.annotation.tag, attrs=dict(m.annotation.attrs)
                 ),
             )
@@ -68,11 +68,11 @@ class PyParseResult:
         return cls(text=native.text, segments=segs, markers=markers)
 
 
-def parse(text: str) -> PyParseResult:
+def parse(text: str) -> ParseResult:
     """
     Parse KindaXML text with the default configuration.
 
-    Returns a typed PyParseResult wrapper around the native Rust types.
+    Returns a typed ParseResult wrapper around the native Rust types.
     """
-    native = _parse(text)
-    return PyParseResult.from_native(native)
+    native = kindaxml_rs.parse(text)
+    return ParseResult.from_native(native)

@@ -12,5 +12,5 @@ build-backend = "maturin"
 
 [tool.maturin]
 python-source = "python"
-module-name = "kindaxml._lib_name"
+module-name = "kindaxml._kindaxml_rs"
 features = ["python"]
