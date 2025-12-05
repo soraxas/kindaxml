@@ -34,24 +34,34 @@ pub struct Marker {
 /// How to treat unknown tags encountered during parsing.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnknownMode {
+    /// Drop the unknown tag markup but keep inner text.
     Strip,
+    /// Keep the literal `<unknown ...>` markup in the output text.
     Passthrough,
+    /// Do not treat `<...>` as tags at all; parse them as plain text.
     TreatAsText,
 }
 
 /// Recovery strategies for unclosed tags.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecoveryStrategy {
+    /// Retroactively apply the tag to the text on the same line before the tag.
     RetroLine,
+    /// Apply the tag forward until the next tag start.
     ForwardUntilTag,
+    /// Apply the tag forward until the next newline.
     ForwardUntilNewline,
+    /// Apply the tag to the next token/word only.
     ForwardNextToken,
+    /// Ignore the unclosed tag (no annotation emitted).
     Noop,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StrayEndTagPolicy {
+    /// Drop stray end tags for recognized tags.
     Drop,
+    /// Keep stray end tags as literal text.
     Passthrough,
 }
 
