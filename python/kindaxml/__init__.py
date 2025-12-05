@@ -26,4 +26,14 @@ ParseResult: TypeAlias = _native.ParseResult
 parse = _native.parse
 ParserConfig: TypeAlias = _native.ParserConfig
 
-__all__ = ["parse", "Annotation", "Segment", "Marker", "ParseResult", "ParserConfig"]
+__all__ = [
+    "parse",
+    "Annotation",
+    "Segment",
+    "Marker",
+    "ParseResult",
+    "ParserConfig",
+    "default_llm_friendly",
+    "retro_citations_forward_notes",
+    "forward_only",
+]

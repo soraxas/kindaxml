@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from kindaxml import parse
+from kindaxml import parse, ParserConfig
 
 
 def main() -> None:
-    input_text = "We shipped <cite id=1>last week</cite>."
-    result = parse(input_text)
+    input_text = "We shipped <cite id=1>last week</cite> with <note>unknown</note> tag."
+    conf = ParserConfig.default_cite_config()
+    result = parse(input_text, conf)
     print("Original:", input_text)
     print("Text:", result.text)
     for segment in result.segments:

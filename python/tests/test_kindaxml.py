@@ -3,13 +3,19 @@ from __future__ import annotations
 import pathlib
 import sys
 
-
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 PYTHON_SRC = PROJECT_ROOT / "python"
 sys.path.insert(0, str(PYTHON_SRC))
 
 
-from kindaxml import Annotation, Marker, ParserConfig, ParseResult, Segment, parse  # noqa: E402
+from kindaxml import (  # noqa: E402
+    Annotation,
+    Marker,
+    ParserConfig,
+    ParseResult,
+    Segment,
+    parse,
+)
 
 
 def test_parse_returns_typed_result() -> None:

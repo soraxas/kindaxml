@@ -1,12 +1,11 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
-use std::collections::{HashMap, HashSet};
-
 use crate::{
     Annotation, AttrValue, Marker, ParseResult, ParserConfig, RecoveryStrategy, Segment,
     UnknownMode, parse,
 };
 use pyo3::prelude::*;
+use pyo3::types::PyType;
 
 #[pyclass(name = "Annotation")]
 #[derive(Clone)]
@@ -166,25 +165,6 @@ impl PyParseResult {
     }
 }
 
-fn default_config() -> ParserConfig {
-    let recognized_tags: HashSet<String> = ["cite", "note", "todo", "claim", "risk", "code"]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-    let mut per_tag_recovery: HashMap<String, RecoveryStrategy> = HashMap::new();
-    per_tag_recovery.insert("cite".into(), RecoveryStrategy::RetroLine);
-    for tag in ["note", "todo", "claim", "risk", "code"] {
-        per_tag_recovery.insert(tag.into(), RecoveryStrategy::ForwardUntilTag);
-    }
-    ParserConfig {
-        recognized_tags,
-        per_tag_recovery,
-        trim_punctuation: true,
-        case_sensitive_tags: false,
-        ..ParserConfig::default()
-    }
-}
-
 #[pyclass(name = "ParserConfig")]
 pub struct PyParserConfig {
     inner: ParserConfig,
@@ -198,7 +178,21 @@ impl PyParserConfig {
     #[new]
     pub fn new() -> Self {
         Self {
-            inner: default_config(),
+            inner: ParserConfig::default_llm_friendly_config(),
+        }
+    }
+
+    #[classmethod]
+    pub fn default_llm_friendly_config(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: ParserConfig::default_llm_friendly_config(),
+        }
+    }
+
+    #[classmethod]
+    pub fn default_cite_config(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: ParserConfig::default_cite_config(),
         }
     }
 
@@ -273,7 +267,7 @@ pub fn py_parse(
 ) -> PyResult<PyObject> {
     let cfg = config
         .map(|c| c.inner.clone())
-        .unwrap_or_else(default_config);
+        .unwrap_or_else(|| ParserConfig::default());
     let result = parse(input, &cfg);
     Py::new(py, PyParseResult { inner: result }).map(|obj| obj.into_py(py))
 }
