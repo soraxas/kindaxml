@@ -190,8 +190,8 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            if bytes[idx] == b'<' {
-                if let Some((token, consumed)) = self.parse_tag(idx) {
+            if bytes[idx] == b'<'
+                && let Some((token, consumed)) = self.parse_tag(idx) {
                     if self.should_treat_as_text(&token) {
                         self.push_text(&token.raw);
                         idx += consumed;
@@ -218,7 +218,6 @@ impl<'a> Parser<'a> {
                     idx += consumed;
                     continue;
                 }
-            }
 
             if let Some(next_lt) = self.input[idx + 1..].find('<') {
                 let slice = &self.input[idx..idx + 1 + next_lt];
@@ -272,9 +271,9 @@ impl<'a> Parser<'a> {
         let mut self_closing = false;
         if matches!(kind, TagKind::Start) {
             let without_trailing = trimmed.trim_end();
-            if without_trailing.ends_with('/') {
+            if let Some(stripped) = without_trailing.strip_suffix('/') {
                 self_closing = true;
-                trimmed = without_trailing[..without_trailing.len() - 1].trim_end();
+                trimmed = stripped.trim_end();
             } else {
                 trimmed = without_trailing;
             }
@@ -436,7 +435,7 @@ impl<'a> Parser<'a> {
 
     fn close_tag(&mut self, open: OpenTag, close_pos: usize) {
         match open.strategy {
-            RecoveryStrategy::Noop => return,
+            RecoveryStrategy::Noop => (),
             RecoveryStrategy::RetroLine => {
                 let mut start = open.line_start_at_open;
                 let end = open.start_pos;
@@ -542,7 +541,7 @@ impl<'a> Parser<'a> {
         }
 
         while end > start {
-            let ch = self.text[..end].chars().rev().next().unwrap();
+            let ch = self.text[..end].chars().next_back().unwrap();
             if is_trim_char(ch) {
                 end -= ch.len_utf8();
             } else {
