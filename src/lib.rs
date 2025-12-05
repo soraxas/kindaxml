@@ -52,6 +52,7 @@ pub struct ParserConfig {
     pub per_tag_recovery: HashMap<String, RecoveryStrategy>,
     pub unknown_mode: UnknownMode,
     pub autoclose_on_any_tag: bool,
+    pub autoclose_on_same_tag: bool,
     pub trim_punctuation: bool,
     pub case_sensitive_tags: bool,
     pub stray_end_tag_policy: StrayEndTagPolicy,
@@ -64,6 +65,7 @@ impl Default for ParserConfig {
             per_tag_recovery: HashMap::new(),
             unknown_mode: UnknownMode::Strip,
             autoclose_on_any_tag: true,
+            autoclose_on_same_tag: true,
             trim_punctuation: true,
             case_sensitive_tags: true,
             stray_end_tag_policy: StrayEndTagPolicy::Drop,
@@ -198,14 +200,14 @@ impl<'a> Parser<'a> {
 
                     match token.kind {
                         TagKind::Start => {
-                            if self.config.autoclose_on_any_tag {
-                                self.close_all_open(self.text.len());
+                            if self.is_recognized(&token.normalized_name) {
+                                self.maybe_autoclose_on_start_like(&token.normalized_name);
                             }
                             self.handle_start(token);
                         }
                         TagKind::SelfClosing => {
-                            if self.config.autoclose_on_any_tag {
-                                self.close_all_open(self.text.len());
+                            if self.is_recognized(&token.normalized_name) {
+                                self.maybe_autoclose_on_start_like(&token.normalized_name);
                             }
                             self.handle_self_closing(token);
                         }
@@ -401,6 +403,22 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn close_same_tag(&mut self, normalized_name: &str, close_pos: usize) {
+        if let Some(idx) = self
+            .open
+            .iter()
+            .rposition(|o| o.normalized_name == normalized_name)
+        {
+            let trailing = self.open.split_off(idx + 1);
+            for t in trailing.into_iter().rev() {
+                self.close_tag(t, close_pos);
+            }
+            if let Some(open) = self.open.pop() {
+                self.close_explicit(open, close_pos);
+            }
+        }
+    }
+
     fn close_explicit(&mut self, open: OpenTag, close_pos: usize) {
         if open.start_pos >= close_pos {
             return;
@@ -547,6 +565,20 @@ impl<'a> Parser<'a> {
     fn should_treat_as_text(&self, token: &TagToken) -> bool {
         matches!(self.config.unknown_mode, UnknownMode::TreatAsText)
             && !self.is_recognized(&token.normalized_name)
+    }
+
+    fn maybe_autoclose_on_start_like(&mut self, normalized_name: &str) {
+        if self.config.autoclose_on_same_tag
+            && self
+                .open
+                .iter()
+                .any(|o| o.normalized_name == normalized_name)
+        {
+            self.close_same_tag(normalized_name, self.text.len());
+        }
+        if self.config.autoclose_on_any_tag {
+            self.close_all_open(self.text.len());
+        }
     }
 }
 
@@ -938,6 +970,14 @@ mod tests {
         let broken_double = parse("<cite id=\"3>Evidence</cite>", &cfg);
         let ann = broken_double.segments[0].annotations[0].attrs.get("id");
         assert_eq!(ann, Some(&AttrValue::Str("3".into())));
+
+        let broken_double_with_other_attr = parse("<cite id=\"4 ok=yes>Evidence</cite>", &cfg);
+        let ann = broken_double_with_other_attr.segments[0].annotations[0].attrs.get("id");
+        assert_eq!(ann, Some(&AttrValue::Str("4 ok=yes".into())));
+
+        let broken_single_with_other_attr = parse("<cite id='5 ok=yes>Evidence</cite>", &cfg);
+        let ann = broken_single_with_other_attr.segments[0].annotations[0].attrs.get("id");
+        assert_eq!(ann, Some(&AttrValue::Str("5 ok=yes".into())));
     }
 
     #[test]
@@ -946,6 +986,12 @@ mod tests {
         let result = parse("<cite id=1 id=2>Evidence</cite>", &cfg);
         let ann = result.segments[0].annotations[0].attrs.get("id");
         assert_eq!(ann, Some(&AttrValue::Str("2".into())));
+    }
+
+    #[test]
+    #[ignore = "not implemented yet"]
+    fn duplicate_attrs_as_comma_list() {
+        let _cfg = base_config();
     }
 
     #[test]
@@ -976,12 +1022,12 @@ mod tests {
     }
 
     #[test]
-    fn reopening_same_tag_flattens() {
+    fn reopening_same_tag_auto_close() {
         let cfg = base_config();
         let result = parse("<cite id=1>One <cite id=2>Two</cite>", &cfg);
         assert_eq!(result.text, "One Two");
         let cites = annotated_texts(&result, "cite");
-        assert_eq!(cites, vec!["Two"]);
+        assert_eq!(cites, vec!["One ", "Two"]);
     }
 
     #[test]
@@ -1002,5 +1048,76 @@ mod tests {
         assert_eq!(result.text, "if (a < b) return;]]");
         let code = annotated_texts(&result, "code");
         assert_eq!(code, vec!["if (a < b) return;]]"]);
+    }
+
+    #[test]
+    fn autoclose_same_tag_even_when_any_disabled() {
+        let mut cfg = base_config();
+        cfg.autoclose_on_any_tag = false;
+        cfg.autoclose_on_same_tag = true;
+        let result = parse("A <note>alpha <note>beta</note>", &cfg);
+        assert_eq!(result.text, "A alpha beta");
+        let notes = annotated_texts(&result, "note");
+        assert_eq!(notes, vec!["alpha ", "beta"]);
+    }
+
+    #[test]
+    fn autoclose_same_tag_can_be_disabled() {
+        let mut cfg = base_config();
+        cfg.autoclose_on_any_tag = false;
+        cfg.autoclose_on_same_tag = false;
+        let result = parse("A <note>alpha <note>beta</note>", &cfg);
+        assert_eq!(result.text, "A alpha beta");
+        let notes = annotated_texts(&result, "note");
+        assert_eq!(notes.join(""), "alpha beta");
+    }
+
+    #[test]
+    fn autoclose_any_disabled_preserves_outer_span() {
+        let mut cfg = base_config();
+        cfg.autoclose_on_any_tag = false;
+        cfg.autoclose_on_same_tag = false;
+        let result = parse("<note>alpha <cite id=1>beta</cite>", &cfg);
+        assert_eq!(result.text, "alpha beta");
+        let notes = annotated_texts(&result, "note");
+        assert_eq!(notes.join(""), "alpha beta");
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites, vec!["beta"]);
+    }
+
+    #[test]
+    fn case_sensitive_off_allows_mixed_case_tags() {
+        let mut cfg = base_config();
+        cfg.case_sensitive_tags = false;
+        let result = parse("<CITE id=1>Hi</CITE>", &cfg);
+        let cites = annotated_texts(&result, "CITE");
+        assert_eq!(cites, vec!["Hi"]);
+    }
+
+    #[test]
+    fn case_sensitive_on_requires_exact_match() {
+        let mut cfg = base_config();
+        cfg.case_sensitive_tags = true;
+        cfg.recognized_tags = ["cite"].iter().map(|s| s.to_string()).collect();
+        let result = parse("<CITE id=1>Hi</CITE>", &cfg);
+        assert!(annotated_texts(&result, "cite").is_empty());
+        assert_eq!(result.text, "Hi");
+    }
+
+    #[test]
+    fn stray_end_tag_passthrough_keeps_text() {
+        let mut cfg = base_config();
+        cfg.stray_end_tag_policy = StrayEndTagPolicy::Passthrough;
+        let result = parse("Hello </cite>world", &cfg);
+        assert_eq!(result.text, "Hello </cite>world");
+    }
+
+    #[test]
+    fn retro_line_without_trim_keeps_punctuation() {
+        let mut cfg = base_config();
+        cfg.trim_punctuation = false;
+        let result = parse("We shipped last week, <cite id=1>", &cfg);
+        let cites = annotated_texts(&result, "cite");
+        assert_eq!(cites, vec!["We shipped last week, "]);
     }
 }
