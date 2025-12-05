@@ -9,7 +9,9 @@ PYTHON_SRC = PROJECT_ROOT / "python"
 sys.path.insert(0, str(PYTHON_SRC))
 
 
-from kindaxml import Annotation, ParseResult, Segment, parse  # noqa: E402
+import pytest
+
+from kindaxml import Annotation, Marker, ParseResult, Segment, parse  # noqa: E402
 
 
 def test_parse_returns_typed_result() -> None:
@@ -21,9 +23,34 @@ def test_parse_returns_typed_result() -> None:
     assert isinstance(cite_ann, Annotation)
     assert cite_ann.tag == "cite"
     assert cite_ann.attrs["id"] == "1"
+    assert "ParseResult" in repr(res)
+    assert "Annotation" in repr(cite_ann)
 
 
 def test_parse_markers() -> None:
     res = parse("Todo <todo id=3/>now")
+    assert isinstance(res.markers[0], Marker)
     assert res.markers[0].annotation.tag == "todo"
     assert res.markers[0].annotation.attrs["id"] == "3"
+    assert "Marker" in repr(res.markers[0])
+
+
+def test_forward_until_tag_default_config() -> None:
+    res = parse("Risk: <risk level=high>backend <risk level=low>frontend")
+    assert res.segments[1].annotations[0].attrs["level"] == "high"
+    assert res.segments[2].annotations[0].attrs["level"] == "low"
+
+
+def test_unknown_tags_are_stripped() -> None:
+    res = parse("Hello <unknown>world</unknown>")
+    assert res.text == "Hello world"
+    assert all(not seg.annotations for seg in res.segments)
+
+
+def test_repr_contains_useful_info() -> None:
+    res = parse("<cite id=2>Hello</cite>")
+    assert "ParseResult" in repr(res)
+    assert "segments=" in repr(res)
+    seg_repr = repr(res.segments[0])
+    assert "Segment" in seg_repr
+    assert "Annotation" in repr(res.segments[0].annotations[0])

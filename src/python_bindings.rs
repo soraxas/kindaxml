@@ -1,6 +1,10 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
-use crate::{Annotation, AttrValue, Marker, ParseResult, ParserConfig, Segment, parse};
+use std::collections::{HashMap, HashSet};
+
+use crate::{
+    parse, Annotation, AttrValue, Marker, ParseResult, ParserConfig, RecoveryStrategy, Segment,
+};
 use pyo3::prelude::*;
 
 #[pyclass(name = "Annotation")]
@@ -27,6 +31,13 @@ impl PyAnnotation {
         }
         Ok(dict.into_py(py))
     }
+
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "Annotation(tag='{}', attrs={:?})",
+            self.inner.tag, self.inner.attrs
+        ))
+    }
 }
 
 #[pyclass(name = "Segment")]
@@ -51,6 +62,19 @@ impl PySegment {
             .map(|a| Py::new(py, PyAnnotation { inner: a }))
             .collect()
     }
+
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "Segment(text='{}', annotations={})",
+            self.inner.text.replace('\'', "\""),
+            self.inner
+                .annotations
+                .iter()
+                .map(|a| format!("Annotation(tag='{}')", a.tag))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))
+    }
 }
 
 #[pyclass(name = "Marker")]
@@ -74,6 +98,13 @@ impl PyMarker {
                 inner: self.inner.annotation.clone(),
             },
         )
+    }
+
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "Marker(pos={}, annotation=Annotation(tag='{}'))",
+            self.inner.pos, self.inner.annotation.tag
+        ))
     }
 }
 
@@ -108,11 +139,39 @@ impl PyParseResult {
             .map(|m| Py::new(py, PyMarker { inner: m }))
             .collect()
     }
+
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "ParseResult(text_len={}, segments={}, markers={})",
+            self.inner.text.len(),
+            self.inner.segments.len(),
+            self.inner.markers.len()
+        ))
+    }
+}
+
+fn default_config() -> ParserConfig {
+    let recognized_tags: HashSet<String> = ["cite", "note", "todo", "claim", "risk", "code"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let mut per_tag_recovery: HashMap<String, RecoveryStrategy> = HashMap::new();
+    per_tag_recovery.insert("cite".into(), RecoveryStrategy::RetroLine);
+    for tag in ["note", "todo", "claim", "risk", "code"] {
+        per_tag_recovery.insert(tag.into(), RecoveryStrategy::ForwardUntilTag);
+    }
+    ParserConfig {
+        recognized_tags,
+        per_tag_recovery,
+        trim_punctuation: true,
+        case_sensitive_tags: false,
+        ..ParserConfig::default()
+    }
 }
 
 #[pyfunction(name = "parse")]
 pub fn py_parse(py: Python<'_>, input: &str) -> PyResult<PyObject> {
-    let cfg = ParserConfig::default();
+    let cfg = default_config();
     let result = parse(input, &cfg);
     Py::new(py, PyParseResult { inner: result }).map(|obj| obj.into_py(py))
 }
