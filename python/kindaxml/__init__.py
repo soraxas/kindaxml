@@ -9,5 +9,6 @@ Segment: TypeAlias = _native.Segment
 Marker: TypeAlias = _native.Marker
 ParseResult: TypeAlias = _native.ParseResult
 parse = _native.parse
+ParserConfig: TypeAlias = _native.ParserConfig
 
-__all__ = ["parse", "Annotation", "Segment", "Marker", "ParseResult"]
+__all__ = ["parse", "Annotation", "Segment", "Marker", "ParseResult", "ParserConfig"]

@@ -3,30 +3,35 @@ use std::collections::{HashMap, HashSet};
 #[cfg(feature = "python")]
 mod python_bindings;
 
+/// A single attribute value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AttrValue {
     Bool(bool),
     Str(String),
 }
 
+/// An annotation applied to a span of text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Annotation {
     pub tag: String,
     pub attrs: HashMap<String, AttrValue>,
 }
 
+/// A contiguous run of text plus any annotations covering it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Segment {
     pub text: String,
     pub annotations: Vec<Annotation>,
 }
 
+/// A zero-width marker produced by self-closing tags.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Marker {
     pub pos: usize,
     pub annotation: Annotation,
 }
 
+/// How to treat unknown tags encountered during parsing.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnknownMode {
     Strip,
@@ -34,6 +39,7 @@ pub enum UnknownMode {
     TreatAsText,
 }
 
+/// Recovery strategies for unclosed tags.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecoveryStrategy {
     RetroLine,
@@ -49,6 +55,7 @@ pub enum StrayEndTagPolicy {
     Passthrough,
 }
 
+/// Parser configuration controlling tag recognition and recovery.
 #[derive(Debug, Clone)]
 pub struct ParserConfig {
     pub recognized_tags: HashSet<String>,

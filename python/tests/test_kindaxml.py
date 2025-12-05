@@ -9,7 +9,7 @@ PYTHON_SRC = PROJECT_ROOT / "python"
 sys.path.insert(0, str(PYTHON_SRC))
 
 
-from kindaxml import Annotation, Marker, ParseResult, Segment, parse  # noqa: E402
+from kindaxml import Annotation, Marker, ParserConfig, ParseResult, Segment, parse  # noqa: E402
 
 
 def test_parse_returns_typed_result() -> None:
@@ -52,3 +52,12 @@ def test_repr_contains_useful_info() -> None:
     seg_repr = repr(res.segments[0])
     assert "Segment" in seg_repr
     assert "Annotation" in repr(res.segments[0].annotations[0])
+
+
+def test_custom_config_passthrough() -> None:
+    cfg = ParserConfig()
+    cfg.set_unknown_mode("passthrough")
+    cfg.set_recognized_tags(["note"])
+    res = parse("Hello <weird>world</weird> <note>ok</note>", cfg)
+    assert "weird" in res.text
+    assert res.segments[-1].annotations[0].tag == "note"
