@@ -9,8 +9,6 @@ PYTHON_SRC = PROJECT_ROOT / "python"
 sys.path.insert(0, str(PYTHON_SRC))
 
 
-import pytest
-
 from kindaxml import Annotation, Marker, ParseResult, Segment, parse  # noqa: E402
 
 

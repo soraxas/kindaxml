@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    parse, Annotation, AttrValue, Marker, ParseResult, ParserConfig, RecoveryStrategy, Segment,
+    Annotation, AttrValue, Marker, ParseResult, ParserConfig, RecoveryStrategy, Segment, parse,
 };
 use pyo3::prelude::*;
 
