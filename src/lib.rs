@@ -288,7 +288,11 @@ impl<'a> Parser<'a> {
         };
 
         let normalized_name = self.normalize_tag(&name);
-        let final_kind = if self_closing { TagKind::SelfClosing } else { kind };
+        let final_kind = if self_closing {
+            TagKind::SelfClosing
+        } else {
+            kind
+        };
 
         Some((
             TagToken {
@@ -743,10 +747,12 @@ mod tests {
         let result = parse("We shipped <cite id=\"1\">last week</cite>.", &cfg);
         assert_eq!(result.text, "We shipped last week.");
         assert_eq!(result.segments.len(), 3);
-        assert!(result.segments[1]
-            .annotations
-            .iter()
-            .any(|a| a.tag == "cite"));
+        assert!(
+            result.segments[1]
+                .annotations
+                .iter()
+                .any(|a| a.tag == "cite")
+        );
         let ann = &result.segments[1].annotations[0];
         assert_eq!(ann.attrs.get("id"), Some(&AttrValue::Str("1".into())));
         assert_eq!(result.segments[1].text, "last week");
@@ -807,30 +813,21 @@ mod tests {
             &cfg,
         );
 
-        assert_eq!(
-            result.text,
-            "Risks: delays <mystery>??</mystery> persist"
-        );
+        assert_eq!(result.text, "Risks: delays <mystery>??</mystery> persist");
 
         let risk_segment = result
             .segments
             .iter()
             .find(|s| s.annotations.iter().any(|a| a.tag == "risk"))
             .expect("risk segment");
-        assert_eq!(
-            risk_segment.text,
-            "delays <mystery>??</mystery> persist"
-        );
+        assert_eq!(risk_segment.text, "delays <mystery>??</mystery> persist");
 
         let ann = risk_segment
             .annotations
             .iter()
             .find(|a| a.tag == "risk")
             .unwrap();
-        assert_eq!(
-            ann.attrs.get("level"),
-            Some(&AttrValue::Str("high".into()))
-        );
+        assert_eq!(ann.attrs.get("level"), Some(&AttrValue::Str("high".into())));
     }
 
     #[test]
@@ -893,8 +890,10 @@ mod tests {
     #[test]
     fn cdata_literal_in_code() {
         let cfg = base_config();
-        let result =
-            parse("<code><![CDATA[if (a < b) { return a > 0; }]]></code>", &cfg);
+        let result = parse(
+            "<code><![CDATA[if (a < b) { return a > 0; }]]></code>",
+            &cfg,
+        );
         assert_eq!(result.text, "if (a < b) { return a > 0; }");
         let code = annotated_texts(&result, "code");
         assert_eq!(code, vec!["if (a < b) { return a > 0; }"]);
@@ -972,11 +971,15 @@ mod tests {
         assert_eq!(ann, Some(&AttrValue::Str("3".into())));
 
         let broken_double_with_other_attr = parse("<cite id=\"4 ok=yes>Evidence</cite>", &cfg);
-        let ann = broken_double_with_other_attr.segments[0].annotations[0].attrs.get("id");
+        let ann = broken_double_with_other_attr.segments[0].annotations[0]
+            .attrs
+            .get("id");
         assert_eq!(ann, Some(&AttrValue::Str("4 ok=yes".into())));
 
         let broken_single_with_other_attr = parse("<cite id='5 ok=yes>Evidence</cite>", &cfg);
-        let ann = broken_single_with_other_attr.segments[0].annotations[0].attrs.get("id");
+        let ann = broken_single_with_other_attr.segments[0].annotations[0]
+            .attrs
+            .get("id");
         assert_eq!(ann, Some(&AttrValue::Str("5 ok=yes".into())));
     }
 
@@ -1015,10 +1018,12 @@ mod tests {
         let cfg = base_config();
         let result = parse("Hello <weird x=1>world</weird>!", &cfg);
         assert_eq!(result.text, "Hello world!");
-        assert!(result
-            .segments
-            .iter()
-            .all(|s| s.annotations.iter().all(|a| a.tag != "weird")));
+        assert!(
+            result
+                .segments
+                .iter()
+                .all(|s| s.annotations.iter().all(|a| a.tag != "weird"))
+        );
     }
 
     #[test]

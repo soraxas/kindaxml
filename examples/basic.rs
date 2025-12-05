@@ -1,13 +1,10 @@
-use kindaxml::{parse, AttrValue, ParserConfig, RecoveryStrategy, UnknownMode};
+use kindaxml::{AttrValue, ParserConfig, RecoveryStrategy, UnknownMode, parse};
 use std::collections::HashSet;
 
 fn main() {
     let config = build_config();
     let samples = vec![
-        (
-            "Inline span",
-            "We shipped <cite id=\"1\">last week</cite>.",
-        ),
+        ("Inline span", "We shipped <cite id=\"1\">last week</cite>."),
         (
             "Retroactive cite",
             "We shipped last week <cite id=1>. More info <note>soon",
