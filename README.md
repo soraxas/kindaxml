@@ -191,6 +191,8 @@ fn main() {
 
 ## Examples
 
+Run the runnable demo with `cargo run --example basic` to see the original snippets alongside their parsed segments and markers.
+
 ### Closed tag (inline span)
 
 Input:
