@@ -2,6 +2,14 @@
 name = "kindaxml"
 version = "0.1.0"
 edition = "2024"
+description = "Close-enough, XML-ish annotation parsing with deterministic recovery for LLM output."
+license = "MIT"
+authors = ["Tin Lai <tin@tinyiu.com>"]
+repository = "https://github.com/soraxas/kindaxml"
+homepage = "https://github.com/soraxas/kindaxml"
+readme = "README.md"
+keywords = ["markup", "xml", "annotation", "llm", "parser"]
+categories = ["text-processing", "parsing"]
 
 [lib]
 name = "kindaxml"
