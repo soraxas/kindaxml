@@ -1,4 +1,12 @@
+#![cfg_attr(feature = "python", allow(unsafe_op_in_unsafe_fn))]
+
 use std::collections::{HashMap, HashSet};
+
+#[cfg(feature = "python")]
+use pyo3::{
+    prelude::*,
+    types::{PyDict, PyList},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AttrValue {
@@ -191,33 +199,34 @@ impl<'a> Parser<'a> {
             }
 
             if bytes[idx] == b'<'
-                && let Some((token, consumed)) = self.parse_tag(idx) {
-                    if self.should_treat_as_text(&token) {
-                        self.push_text(&token.raw);
-                        idx += consumed;
-                        continue;
-                    }
-
-                    match token.kind {
-                        TagKind::Start => {
-                            if self.is_recognized(&token.normalized_name) {
-                                self.maybe_autoclose_on_start_like(&token.normalized_name);
-                            }
-                            self.handle_start(token);
-                        }
-                        TagKind::SelfClosing => {
-                            if self.is_recognized(&token.normalized_name) {
-                                self.maybe_autoclose_on_start_like(&token.normalized_name);
-                            }
-                            self.handle_self_closing(token);
-                        }
-                        TagKind::End => {
-                            self.handle_end(token);
-                        }
-                    }
+                && let Some((token, consumed)) = self.parse_tag(idx)
+            {
+                if self.should_treat_as_text(&token) {
+                    self.push_text(&token.raw);
                     idx += consumed;
                     continue;
                 }
+
+                match token.kind {
+                    TagKind::Start => {
+                        if self.is_recognized(&token.normalized_name) {
+                            self.maybe_autoclose_on_start_like(&token.normalized_name);
+                        }
+                        self.handle_start(token);
+                    }
+                    TagKind::SelfClosing => {
+                        if self.is_recognized(&token.normalized_name) {
+                            self.maybe_autoclose_on_start_like(&token.normalized_name);
+                        }
+                        self.handle_self_closing(token);
+                    }
+                    TagKind::End => {
+                        self.handle_end(token);
+                    }
+                }
+                idx += consumed;
+                continue;
+            }
 
             if let Some(next_lt) = self.input[idx + 1..].find('<') {
                 let slice = &self.input[idx..idx + 1 + next_lt];
@@ -708,6 +717,84 @@ fn is_name_continue(ch: char) -> bool {
 
 fn is_trim_char(ch: char) -> bool {
     ch.is_whitespace() || matches!(ch, ',' | '.' | ';' | ':' | '!' | '?' | ')' | '(')
+}
+
+#[cfg(feature = "python")]
+fn attrs_to_pydict(py: Python<'_>, attrs: &HashMap<String, AttrValue>) -> PyResult<PyObject> {
+    let dict = PyDict::new_bound(py);
+    for (k, v) in attrs {
+        match v {
+            AttrValue::Bool(b) => dict.set_item(k, *b)?,
+            AttrValue::Str(s) => dict.set_item(k, s)?,
+        }
+    }
+    Ok(dict.into_py(py))
+}
+
+#[cfg(feature = "python")]
+fn annotation_to_pydict(py: Python<'_>, ann: &Annotation) -> PyResult<PyObject> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item("tag", &ann.tag)?;
+    dict.set_item("attrs", attrs_to_pydict(py, &ann.attrs)?)?;
+    Ok(dict.into_py(py))
+}
+
+#[cfg(feature = "python")]
+fn segment_to_pydict(py: Python<'_>, seg: &Segment) -> PyResult<PyObject> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item("text", &seg.text)?;
+    let anns = PyList::empty_bound(py);
+    for ann in &seg.annotations {
+        anns.append(annotation_to_pydict(py, ann)?)?;
+    }
+    dict.set_item("annotations", anns)?;
+    Ok(dict.into_py(py))
+}
+
+#[cfg(feature = "python")]
+fn marker_to_pydict(py: Python<'_>, marker: &Marker) -> PyResult<PyObject> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item("pos", marker.pos)?;
+    dict.set_item("annotation", annotation_to_pydict(py, &marker.annotation)?)?;
+    Ok(dict.into_py(py))
+}
+
+#[cfg(feature = "python")]
+fn parse_default_py(py: Python<'_>, input: &str) -> PyResult<PyObject> {
+    let cfg = ParserConfig::default();
+    let result = parse(input, &cfg);
+
+    let dict = PyDict::new_bound(py);
+    dict.set_item("text", &result.text)?;
+
+    let segs = PyList::empty_bound(py);
+    for seg in &result.segments {
+        segs.append(segment_to_pydict(py, seg)?)?;
+    }
+    dict.set_item("segments", segs)?;
+
+    let markers = PyList::empty_bound(py);
+    for marker in &result.markers {
+        markers.append(marker_to_pydict(py, marker)?)?;
+    }
+    dict.set_item("markers", markers)?;
+
+    Ok(dict.into_py(py))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction(name = "parse")]
+#[allow(unsafe_op_in_unsafe_fn)]
+fn py_parse(py: Python<'_>, input: &str) -> PyResult<PyObject> {
+    parse_default_py(py, input)
+}
+
+#[cfg(feature = "python")]
+#[pymodule]
+#[pyo3(name = "_lib_name")]
+fn python_module(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(py_parse, m)?)?;
+    Ok(())
 }
 
 #[cfg(test)]

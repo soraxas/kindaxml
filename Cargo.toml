@@ -3,4 +3,13 @@ name = "kindaxml"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "kindaxml"
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = ["python"]
+python = ["pyo3"]
+
 [dependencies]
+pyo3 = { version = "0.21", optional = true, features = ["extension-module"] }
