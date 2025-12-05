@@ -9,8 +9,7 @@ def main() -> None:
     print("Original:", input_text)
     print("Text:", result.text)
     for segment in result.segments:
-        ann_tags = [a.tag for a in segment.annotations]
-        print(f"Segment: {segment.text!r} anns={ann_tags}")
+        print(f"Segment: {segment.text!r} anns={segment.annotations}")
     for marker in result.markers:
         print(f"Marker @{marker.pos}: {marker.annotation.tag}")
 
