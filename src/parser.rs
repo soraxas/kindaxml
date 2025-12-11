@@ -98,9 +98,10 @@ impl<'a> Parser<'a> {
 
     fn run(&mut self) {
         let mut idx = 0;
-        let bytes = self.input.as_bytes();
         while idx < self.input.len() {
-            if self.input[idx..].starts_with("<![CDATA[") {
+            let remaining = &self.input[idx..];
+
+            if remaining.starts_with("<![CDATA[") {
                 let cdata_start = idx + "<![CDATA[".len();
                 if let Some(end) = self.input[cdata_start..].find("]]>") {
                     let literal_end = cdata_start + end;
@@ -115,43 +116,50 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            if bytes[idx] == b'<'
-                && let Some((token, consumed)) = self.parse_tag(idx)
-            {
-                if self.should_treat_as_text(&token) {
-                    self.push_text(&token.raw);
+            if remaining.starts_with('<') {
+                if let Some((token, consumed)) = self.parse_tag(idx) {
+                    if self.should_treat_as_text(&token) {
+                        self.push_text(&token.raw);
+                        idx += consumed;
+                        continue;
+                    }
+
+                    match token.kind {
+                        TagKind::Start => {
+                            if self.is_recognized(&token.normalized_name) {
+                                self.maybe_autoclose_on_start_like(&token.normalized_name);
+                            }
+                            self.handle_start(token);
+                        }
+                        TagKind::SelfClosing => {
+                            if self.is_recognized(&token.normalized_name) {
+                                self.maybe_autoclose_on_start_like(&token.normalized_name);
+                            }
+                            self.handle_self_closing(token);
+                        }
+                        TagKind::End => {
+                            self.handle_end(token);
+                        }
+                    }
                     idx += consumed;
                     continue;
+                } else {
+                    // Treat a lone '<' as literal text and advance by one character.
+                    let mut buf = [0u8; 4];
+                    let ch = remaining.chars().next().unwrap();
+                    let as_str = ch.encode_utf8(&mut buf);
+                    self.push_text(as_str);
+                    idx += ch.len_utf8();
+                    continue;
                 }
-
-                match token.kind {
-                    TagKind::Start => {
-                        if self.is_recognized(&token.normalized_name) {
-                            self.maybe_autoclose_on_start_like(&token.normalized_name);
-                        }
-                        self.handle_start(token);
-                    }
-                    TagKind::SelfClosing => {
-                        if self.is_recognized(&token.normalized_name) {
-                            self.maybe_autoclose_on_start_like(&token.normalized_name);
-                        }
-                        self.handle_self_closing(token);
-                    }
-                    TagKind::End => {
-                        self.handle_end(token);
-                    }
-                }
-                idx += consumed;
-                continue;
             }
 
-            if let Some(next_lt) = self.input[idx + 1..].find('<') {
-                let slice = &self.input[idx..idx + 1 + next_lt];
+            if let Some(next_lt) = remaining.find('<') {
+                let slice = &remaining[..next_lt];
                 self.push_text(slice);
-                idx += 1 + next_lt;
+                idx += slice.len();
             } else {
-                let slice = &self.input[idx..];
-                self.push_text(slice);
+                self.push_text(remaining);
                 idx = self.input.len();
             }
         }
