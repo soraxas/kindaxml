@@ -267,7 +267,7 @@ pub fn py_parse(
 ) -> PyResult<PyObject> {
     let cfg = config
         .map(|c| c.inner.clone())
-        .unwrap_or_else(|| ParserConfig::default());
+        .unwrap_or_else(ParserConfig::default_llm_friendly_config);
     let result = parse(input, &cfg);
     Py::new(py, PyParseResult { inner: result }).map(|obj| obj.into_py(py))
 }
