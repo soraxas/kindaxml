@@ -28,18 +28,25 @@ jobs:
           python-version: "3.12"
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+      - name: Create virtualenv
+        run: python -m venv .venv
       - name: Install test dependencies
         run: |
+          source .venv/bin/activate
           python -m pip install --upgrade pip
           pip install maturin pytest
       - name: Run cargo tests with python feature
         env:
-          PYO3_PYTHON: python
+          PYO3_PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: cargo test --features python
       - name: Build python extension (editable)
-        run: maturin develop
+        run: |
+          source .venv/bin/activate
+          maturin develop
       - name: Run pytest
-        run: pytest python
+        run: |
+          source .venv/bin/activate
+          pytest python
 
   linux:
     runs-on: ${{ matrix.platform.runner }}
@@ -67,7 +74,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --interpreter 3.12
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
       - name: Upload wheels
@@ -98,7 +105,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --interpreter 3.12
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: musllinux_1_2
       - name: Upload wheels
@@ -126,7 +133,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --interpreter 3.12
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -152,7 +159,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --interpreter 3.12
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
       - name: Upload wheels
         uses: actions/upload-artifact@v4
