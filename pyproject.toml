@@ -14,3 +14,8 @@ build-backend = "maturin"
 python-source = "python"
 module-name = "kindaxml._kindaxml_rs"
 features = ["python"]
+
+[dependency-groups]
+docs = [
+    "mkdocs-material>=9.7.1",
+]
