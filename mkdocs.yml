@@ -45,9 +45,12 @@ theme:
 repo_name: soraxas/kindaxml
 repo_url: https://github.com/soraxas/kindaxml
 edit_uri: edit/main/docs/
+
+extra_css:
+  - styles/annotation.css
 extra:
-  version:
-    provider: mike
+  # version:
+  #   provider: mike
   analytics:
     feedback:
       title: Was this page helpful?
@@ -75,10 +78,12 @@ nav:
   - Concepts: concepts.md
   - Modes: modes.md
   - Examples:
+      - Quick examples: examples/quick-examples.md
       - Basic: examples/basic.md
 
 markdown_extensions:
   - tables
+  - attr_list
   - toc:
       permalink: true
       title: Page contents
@@ -105,3 +110,7 @@ plugins:
   #     alias_type: symlink
   #     canonical_version: latest
   - search
+  - include-markdown:
+  # - doc-examples:
+  - kindaxml-build-doc-examples:
+      out_file: generated/example-output.md.snippet

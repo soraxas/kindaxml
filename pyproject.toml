@@ -17,5 +17,15 @@ features = ["python"]
 
 [dependency-groups]
 docs = [
+    "mkdocs-include-markdown-plugin>=7.2.0",
     "mkdocs-material>=9.7.1",
 ]
+
+[tool.uv]
+# Rebuild package when any rust files change
+cache-keys = [{file = "pyproject.toml"}, {file = "Cargo.toml"}, {file = "**/*.rs"}]
+# Uncomment to build rust code in development mode
+# config-settings = { build-args = '--profile=dev' }
+
+[project.entry-points."mkdocs.plugins"]
+kindaxml-build-doc-examples = "kindaxml.build_doc_examples:TransformPlugin"
