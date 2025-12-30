@@ -61,9 +61,17 @@ def test_repr_contains_useful_info() -> None:
 
 
 def test_custom_config_passthrough() -> None:
-    cfg = ParserConfig()
-    cfg.set_unknown_mode("passthrough")
-    cfg.set_recognized_tags(["note"])
+    cfg = ParserConfig().with_unknown_mode("passthrough").with_recognized_tags(["note"])
     res = parse("Hello <weird>world</weird> <note>ok</note>", cfg)
     assert "weird" in res.text
     assert res.segments[-1].annotations[0].tag == "note"
+
+
+def test_self_closing_tags() -> None:
+    cfg = ParserConfig().with_recognized_tags(["todo"])
+    res = parse("This is<todo id=8/> my todo", cfg)
+    assert len(res.markers) == 1
+    assert len(res.segments) == 1
+    assert res.markers[0].annotation.tag == "todo"
+    assert res.segments[0].text == "This is my todo"
+    assert res.segments[0].annotations == []

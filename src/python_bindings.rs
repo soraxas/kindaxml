@@ -178,7 +178,7 @@ impl PyParserConfig {
     #[new]
     pub fn new() -> Self {
         Self {
-            inner: ParserConfig::default_llm_friendly_config(),
+            inner: ParserConfig::default(),
         }
     }
 
@@ -197,13 +197,20 @@ impl PyParserConfig {
     }
 
     /// Replace the recognized tag set.
-    pub fn set_recognized_tags(&mut self, tags: Vec<String>) {
-        self.inner.recognized_tags = tags.into_iter().collect();
+    pub fn with_recognized_tags<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        tags: Vec<String>,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner.recognized_tags = tags.into_iter().collect();
+        slf
     }
 
     /// Set the unknown tag handling mode: "strip", "passthrough", or "treat_as_text".
-    pub fn set_unknown_mode(&mut self, mode: &str) -> PyResult<()> {
-        self.inner.unknown_mode = match mode.to_ascii_lowercase().as_str() {
+    pub fn with_unknown_mode<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        mode: &str,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        slf.inner.unknown_mode = match mode.to_ascii_lowercase().as_str() {
             "strip" => UnknownMode::Strip,
             "passthrough" => UnknownMode::Passthrough,
             "treat_as_text" => UnknownMode::TreatAsText,
@@ -214,11 +221,15 @@ impl PyParserConfig {
                 )));
             }
         };
-        Ok(())
+        Ok(slf)
     }
 
     /// Set recovery strategy for a specific tag: "retro_line", "forward_until_tag", "forward_until_newline", "forward_next_token", or "noop".
-    pub fn set_recovery_strategy(&mut self, tag: &str, strategy: &str) -> PyResult<()> {
+    pub fn with_recovery_strategy<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        tag: &str,
+        strategy: &str,
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let strat = match strategy.to_ascii_lowercase().as_str() {
             "retro_line" => RecoveryStrategy::RetroLine,
             "forward_until_tag" => RecoveryStrategy::ForwardUntilTag,
@@ -232,28 +243,101 @@ impl PyParserConfig {
                 )));
             }
         };
-        self.inner.per_tag_recovery.insert(tag.to_string(), strat);
-        Ok(())
+        slf.inner.per_tag_recovery.insert(tag.to_string(), strat);
+        // if the tag is not recognized yet, add it
+        slf.inner.recognized_tags.insert(tag.to_string());
+        Ok(slf)
     }
 
     /// Toggle punctuation trimming for retro spans.
-    pub fn set_trim_punctuation(&mut self, val: bool) {
-        self.inner.trim_punctuation = val;
+    pub fn with_trim_punctuation<'a>(mut slf: PyRefMut<'a, Self>, val: bool) -> PyRefMut<'a, Self> {
+        slf.inner.trim_punctuation = val;
+        slf
     }
 
     /// Toggle auto-close behavior when encountering any new tag.
-    pub fn set_autoclose_on_any_tag(&mut self, val: bool) {
-        self.inner.autoclose_on_any_tag = val;
+    pub fn with_autoclose_on_any_tag<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        val: bool,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner.autoclose_on_any_tag = val;
+        slf
     }
 
     /// Toggle auto-close behavior when seeing the same tag again.
-    pub fn set_autoclose_on_same_tag(&mut self, val: bool) {
-        self.inner.autoclose_on_same_tag = val;
+    pub fn with_autoclose_on_same_tag<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        val: bool,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner.autoclose_on_same_tag = val;
+        slf
     }
 
     /// Toggle case-sensitive tag matching.
-    pub fn set_case_sensitive_tags(&mut self, val: bool) {
-        self.inner.case_sensitive_tags = val;
+    pub fn with_case_sensitive_tags<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        val: bool,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner.case_sensitive_tags = val;
+        slf
+    }
+
+    fn __repr__(&self) -> String {
+        // format recognized tags as a sorted list
+        let mut tags: Vec<_> = self.inner.recognized_tags.iter().cloned().collect();
+        tags.sort();
+        let tags_s = format!(
+            "[{}]",
+            tags.iter()
+                .map(|t| format!("'{}'", t))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
+        // format unknown mode
+        let unknown_mode_s = match self.inner.unknown_mode {
+            UnknownMode::Strip => "strip",
+            UnknownMode::Passthrough => "passthrough",
+            UnknownMode::TreatAsText => "treat_as_text",
+        };
+
+        // format per-tag recovery map as sorted entries
+        let mut per: Vec<_> = self
+            .inner
+            .per_tag_recovery
+            .iter()
+            .map(|(k, v)| {
+                let s = match v {
+                    RecoveryStrategy::RetroLine => "retro_line",
+                    RecoveryStrategy::ForwardUntilTag => "forward_until_tag",
+                    RecoveryStrategy::ForwardUntilNewline => "forward_until_newline",
+                    RecoveryStrategy::ForwardNextToken => "forward_next_token",
+                    RecoveryStrategy::Noop => "noop",
+                };
+                format!("'{}': {}", k, s)
+            })
+            .collect();
+        per.sort();
+        let per_s = format!("{{{}}}", per.join(", "));
+
+        format!(
+            "ParserConfig(
+   recognized_tags={},
+   unknown_mode='{}',
+   per_tag_recovery={},
+   trim_punctuation={},
+   autoclose_on_any_tag={},
+   autoclose_on_same_tag={},
+   case_sensitive_tags={}
+)",
+            tags_s,
+            unknown_mode_s,
+            per_s,
+            self.inner.trim_punctuation,
+            self.inner.autoclose_on_any_tag,
+            self.inner.autoclose_on_same_tag,
+            self.inner.case_sensitive_tags
+        )
     }
 }
 
