@@ -2,8 +2,8 @@
 .md-typeset .hl-pop {
   position: relative;
   display: inline-block;
-/* display: inline-block; */
-vertical-align: baseline;
+  /* display: inline-block; */
+  vertical-align: baseline;
   padding: 0 0.2em;
   border-radius: 0.25em;
   background: color-mix(in srgb, currentColor 18%, transparent);
@@ -11,7 +11,6 @@ vertical-align: baseline;
   text-decoration: underline;
   text-decoration-thickness: 0.08em;
   text-underline-offset: 0.15em;
-
 }
 
 /* Tooltip box (wider, prefers single-line, wraps only if necessary) */
@@ -40,14 +39,15 @@ vertical-align: baseline;
   font-size: 0.85em;
   line-height: 1.25;
 
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
   z-index: 10;
 }
 
-
 /* Little arrow */
 .md-typeset .hl-pop::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 50%;
   bottom: calc(100% + 0.2rem);
@@ -62,7 +62,9 @@ vertical-align: baseline;
     0 2px 0 color-mix(in srgb, var(--md-default-fg-color) 18%, transparent)
   );
 
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
   z-index: 10;
 }
 
@@ -81,33 +83,36 @@ vertical-align: baseline;
   outline-offset: 2px;
 }
 
-
-.md-typeset .two-col{
+.md-typeset .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
   align-items: start;
 }
 
-@media (max-width: 900px){
-  .md-typeset .two-col{
+@media (max-width: 900px) {
+  .md-typeset .two-col {
     grid-template-columns: 1fr; /* stack on mobile */
   }
 }
 
-.md-typeset .panel{
-    min-width: 0;
-  padding: .8rem 1rem;
-  border-radius: .6rem;
-  border: 1px solid color-mix(in srgb, var(--md-default-fg-color) 12%, transparent);
-  background: color-mix(in srgb, var(--md-default-bg-color) 92%, var(--md-default-fg-color) 8%);
+.md-typeset .panel {
+  min-width: 0;
+  padding: 0.8rem 1rem;
+  border-radius: 0.6rem;
+  border: 1px solid
+    color-mix(in srgb, var(--md-default-fg-color) 12%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--md-default-bg-color) 92%,
+    var(--md-default-fg-color) 8%
+  );
 }
 
 /* 1) Ensure grid children are allowed to shrink (critical) */
 .md-typeset .two-col > * {
   min-width: 0;
 }
-
 
 /* 2a) Make code blocks WRAP instead of forcing horizontal expansion */
 .md-typeset .two-col pre,
@@ -116,7 +121,6 @@ vertical-align: baseline;
   overflow-wrap: anywhere; /* break long tokens if needed */
   word-break: break-word; /* extra safety */
 }
-
 
 /* ----- */
 .md-typeset .two-col {
