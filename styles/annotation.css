@@ -1,0 +1,149 @@
+/* Highlight + tooltip */
+.md-typeset .hl-pop {
+  position: relative;
+  display: inline-block;
+  /* display: inline-block; */
+  vertical-align: baseline;
+  padding: 0 0.2em;
+  border-radius: 0.25em;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  cursor: help;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.15em;
+}
+
+/* Tooltip box (wider, prefers single-line, wraps only if necessary) */
+.md-typeset .hl-pop::after {
+  content: attr(data-pop);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.5rem);
+  transform: translateX(-50%) translateY(0.25rem);
+  opacity: 0;
+  pointer-events: none;
+
+  /* 👇 key changes */
+  width: max-content; /* grow to fit content */
+  max-width: min(48rem, 92vw); /* allow it to be much wider */
+  white-space: pre-wrap; /* keep author newlines, wrap only when needed */
+  overflow-wrap: anywhere; /* break long tokens if necessary */
+
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.5rem;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  border: 1px solid
+    color-mix(in srgb, var(--md-default-fg-color) 18%, transparent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  font-size: 0.85em;
+  line-height: 1.25;
+
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  z-index: 10;
+}
+
+/* Little arrow */
+.md-typeset .hl-pop::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.2rem);
+  transform: translateX(-50%) translateY(0.25rem);
+  opacity: 0;
+  pointer-events: none;
+
+  border-width: 0.4rem;
+  border-style: solid;
+  border-color: var(--md-default-bg-color) transparent transparent transparent;
+  filter: drop-shadow(
+    0 2px 0 color-mix(in srgb, var(--md-default-fg-color) 18%, transparent)
+  );
+
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  z-index: 10;
+}
+
+/* Show on hover/focus */
+.md-typeset .hl-pop:hover::after,
+.md-typeset .hl-pop:focus::after,
+.md-typeset .hl-pop:hover::before,
+.md-typeset .hl-pop:focus::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Optional: keyboard focus ring */
+.md-typeset .hl-pop:focus {
+  outline: 2px solid color-mix(in srgb, currentColor 40%, transparent);
+  outline-offset: 2px;
+}
+
+.md-typeset .two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .md-typeset .two-col {
+    grid-template-columns: 1fr; /* stack on mobile */
+  }
+}
+
+.md-typeset .panel {
+  min-width: 0;
+  padding: 0.8rem 1rem;
+  border-radius: 0.6rem;
+  border: 1px solid
+    color-mix(in srgb, var(--md-default-fg-color) 12%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--md-default-bg-color) 92%,
+    var(--md-default-fg-color) 8%
+  );
+}
+
+/* 1) Ensure grid children are allowed to shrink (critical) */
+.md-typeset .two-col > * {
+  min-width: 0;
+}
+
+/* 2a) Make code blocks WRAP instead of forcing horizontal expansion */
+.md-typeset .two-col pre,
+.md-typeset .two-col code {
+  white-space: pre-wrap; /* wrap lines */
+  overflow-wrap: anywhere; /* break long tokens if needed */
+  word-break: break-word; /* extra safety */
+}
+
+/* ----- */
+.md-typeset .two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .md-typeset .two-col {
+    grid-template-columns: 1fr; /* stack on mobile */
+  }
+}
+
+.md-typeset .panel {
+  padding: 0.8rem 1rem;
+  border-radius: 0.6rem;
+  border: 1px solid
+    color-mix(in srgb, var(--md-default-fg-color) 12%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--md-default-bg-color) 92%,
+    var(--md-default-fg-color) 8%
+  );
+}

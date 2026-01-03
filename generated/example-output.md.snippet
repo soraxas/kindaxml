@@ -1,0 +1,115 @@
+## Inline span (explicit close)
+Showing how <cite> tags are parsed and annotated.
+
+**Parse settings**: *default*, aka: 
+```python
+ParserConfig(
+   recognized_tags=['cite'],
+   unknown_mode='strip',
+   per_tag_recovery={'cite': retro_line},
+   trim_punctuation=true,
+   autoclose_on_any_tag=true,
+   autoclose_on_same_tag=true,
+   case_sensitive_tags=false
+)
+```
+
+
+<div class="two-col"><div class="panel"><h4>Input</h4><p><p>
+```xml
+We shipped <cite id=1>last week</cite>.
+```
+</p></p></div><div class="panel"><h4>Rendered Output</h4><p><p><span >We shipped </span><span class="hl-pop" data-pop="cite [id='1']">last week</span><span >.</span></p></p></div></div><p></p>**Technical detail:** the <code>cite</code> tag is recognized and closed normally, so the annotation applies only to the inner span.
+
+## Tag annotations
+All tags annotations support with quoted attributes, boolean attributes, and multiple attributes.
+
+**Parse settings**: *Tag annotations can have multiple attributes, including boolean attributes (no value), with or without quotes.*, aka: 
+```python
+ParserConfig(
+   recognized_tags=['tag'],
+   unknown_mode='strip',
+   per_tag_recovery={},
+   trim_punctuation=true,
+   autoclose_on_any_tag=true,
+   autoclose_on_same_tag=true,
+   case_sensitive_tags=true
+)
+```
+
+
+<div class="two-col"><div class="panel"><h4>Input</h4><p><p>
+```xml
+Words can have <tag a=1 b='two' c d="4">multiple attributes</tag>. Word can also have <tag 59=42 9000>number as attribute</tag>. Attribute <tag no=quote>without</tag> quotation mark works, and there will be best-effort to auto-close <tag att='one two three>un-closed quotation marks</tag>. Unrecognized tags are <unknown foo=bar>auto dropped</unknown> with the default config.
+```
+</p></p></div><div class="panel"><h4>Rendered Output</h4><p><p><span >Words can have </span><span class="hl-pop" data-pop="tag [b='two', a='1', d='4', c=True]">multiple attributes</span><span >. Word can also have </span><span class="hl-pop" data-pop="tag [9000=True, 59='42']">number as attribute</span><span >. Attribute </span><span class="hl-pop" data-pop="tag [no='quote']">without</span><span > quotation mark works, and there will be best-effort to auto-close </span><span class="hl-pop" data-pop="tag [att='one two three']">un-closed quotation marks</span><span >. Unrecognized tags are auto dropped with the default config.</span></p></p></div></div><p></p>**Technical detail:** `risk` is configured with `forward_next_token`, so only the next token is annotated for the second tag. Whereas `mytag` uses `retro_line`, so it attaches backward to the start of the line.
+
+## Retroactive cite (unclosed + auto-close)
+Showing how unclosed <cite> tags are handled.
+
+**Parse settings**: *default*, aka: 
+```python
+ParserConfig(
+   recognized_tags=['cite'],
+   unknown_mode='strip',
+   per_tag_recovery={'cite': retro_line},
+   trim_punctuation=true,
+   autoclose_on_any_tag=true,
+   autoclose_on_same_tag=true,
+   case_sensitive_tags=false
+)
+```
+
+
+<div class="two-col"><div class="panel"><h4>Input</h4><p><p>
+```xml
+We shipped last week <cite id=1>. More info <note>soon.
+```
+</p></p></div><div class="panel"><h4>Rendered Output</h4><p><p><span class="hl-pop" data-pop="cite [id='1']">We shipped last week</span><span > . More info </span><span class="hl-pop" data-pop="note []">soon</span><span >.</span></p></p></div></div><p></p>**Technical detail:** `cite` is configured with `retro_line`, so the unclosed tag attaches backward on the same line up to the tag start. The following `<note>` triggers auto-close behavior, because it reaches the end of the line.
+
+## Forward token (per-tag strategy)
+Setting individual tag recovery strategies.
+
+**Parse settings**: *`risk` recovery strategy set to `forward_next_token`*, aka: 
+```python
+ParserConfig(
+   recognized_tags=['mytag', 'risk'],
+   unknown_mode='strip',
+   per_tag_recovery={'mytag': retro_line, 'risk': forward_next_token},
+   trim_punctuation=true,
+   autoclose_on_any_tag=true,
+   autoclose_on_same_tag=true,
+   case_sensitive_tags=true
+)
+```
+
+
+<div class="two-col"><div class="panel"><h4>Input</h4><p><p>
+```xml
+Risks: <mytag level=high> load tests are late. <risk level=low>Docs slipping.
+```
+</p></p></div><div class="panel"><h4>Rendered Output</h4><p><p><span class="hl-pop" data-pop="mytag [level='high']">Risks</span><span >:  load tests are late. </span><span class="hl-pop" data-pop="risk [level='low']">Docs</span><span > slipping.</span></p></p></div></div><p></p>**Technical detail:** `risk` is configured with `forward_next_token`, so only the next token is annotated for the second tag. Whereas `mytag` uses `retro_line`, so it attaches backward to the start of the line.
+
+## Self-closing markers
+Using self-closing tags will emit zero-width markers.
+
+**Parse settings**: *default*, aka: 
+```python
+ParserConfig(
+   recognized_tags=['todo'],
+   unknown_mode='strip',
+   per_tag_recovery={},
+   trim_punctuation=true,
+   autoclose_on_any_tag=true,
+   autoclose_on_same_tag=true,
+   case_sensitive_tags=true
+)
+```
+
+
+<div class="two-col"><div class="panel"><h4>Input</h4><p><p>
+```xml
+Todo list: <todo id=7/>finish rollout <todo/> update docs.
+```
+</p></p></div><div class="panel"><h4>Rendered Output</h4><p><p><span >Todo list: <span class="hl-pop" data-pop="todo [id='7'] (empty marker)">_</span>finish rollout <span class="hl-pop" data-pop="todo [] (empty marker)">_</span> update docs.</span></p></p></div></div><p></p>**Technical detail:** Self-closing `<todo/>` tags emit zero-width markers at their positions instead of annotating a span.
+
