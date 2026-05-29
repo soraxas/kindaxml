@@ -75,3 +75,23 @@ def test_self_closing_tags() -> None:
     assert res.markers[0].annotation.tag == "todo"
     assert res.segments[0].text == "This is my todo"
     assert res.segments[0].annotations == []
+
+
+def test_empty_closed_cite_uses_retro_line_recovery() -> None:
+    res = parse("PIQE assesses perceptual distortions <cite id=1></cite>.")
+
+    assert res.text == "PIQE assesses perceptual distortions ."
+    assert res.segments[0].text == "PIQE assesses perceptual distortions"
+    assert res.segments[0].annotations[0].tag == "cite"
+    assert res.segments[0].annotations[0].attrs["id"] == "1"
+
+
+def test_retro_line_prefers_nearest_sentence() -> None:
+    res = parse(
+        "First sentence is context. Second sentence has the cited claim <cite id=1>."
+    )
+
+    assert res.segments[0].text == "First sentence is context. "
+    assert not res.segments[0].annotations
+    assert res.segments[1].text == "Second sentence has the cited claim"
+    assert res.segments[1].annotations[0].attrs["id"] == "1"

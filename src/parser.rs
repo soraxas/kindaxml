@@ -358,6 +358,9 @@ impl<'a> Parser<'a> {
 
     fn close_explicit(&mut self, open: OpenTag, close_pos: usize) {
         if open.start_pos >= close_pos {
+            if open.strategy == RecoveryStrategy::RetroLine {
+                self.close_tag(open, close_pos);
+            }
             return;
         }
         let annotation = Annotation {
@@ -371,7 +374,11 @@ impl<'a> Parser<'a> {
         match open.strategy {
             RecoveryStrategy::Noop => (),
             RecoveryStrategy::RetroLine => {
-                let mut start = open.line_start_at_open;
+                let mut start = find_retro_line_claim_start(
+                    &self.text,
+                    open.line_start_at_open,
+                    open.start_pos,
+                );
                 let end = open.start_pos;
                 if start > end {
                     start = end;
@@ -630,6 +637,79 @@ fn next_token_bounds(slice: &str) -> Option<(usize, usize)> {
         (Some(s), Some(e)) => Some((s, e)),
         _ => None,
     }
+}
+
+fn find_retro_line_claim_start(text: &str, lower_bound: usize, end: usize) -> usize {
+    if end <= lower_bound {
+        return lower_bound;
+    }
+
+    const MIN_CLAIM_CHARS: usize = 12;
+    const MAX_CLAIM_CHARS: usize = 360;
+
+    let lower_bound = advance_past_trim_chars(text, lower_bound, end);
+
+    if let Some(start) = find_start_after_boundary(
+        text,
+        lower_bound,
+        end,
+        &['.', '?', '!', '\n'],
+        MIN_CLAIM_CHARS,
+    ) {
+        return start;
+    }
+
+    if end.saturating_sub(lower_bound) > MAX_CLAIM_CHARS {
+        if let Some(start) =
+            find_start_after_boundary(text, lower_bound, end, &[',', ';', ':'], MIN_CLAIM_CHARS)
+        {
+            return start;
+        }
+    }
+
+    lower_bound
+}
+
+fn find_start_after_boundary(
+    text: &str,
+    lower_bound: usize,
+    end: usize,
+    boundary_chars: &[char],
+    min_claim_chars: usize,
+) -> Option<usize> {
+    let mut candidates = text[lower_bound..end]
+        .char_indices()
+        .filter_map(|(offset, ch)| {
+            if boundary_chars.contains(&ch) {
+                Some(lower_bound + offset + ch.len_utf8())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    candidates.reverse();
+
+    for candidate in candidates {
+        let start = advance_past_trim_chars(text, candidate, end);
+        if end.saturating_sub(start) >= min_claim_chars {
+            return Some(start);
+        }
+    }
+
+    None
+}
+
+fn advance_past_trim_chars(text: &str, mut start: usize, end: usize) -> usize {
+    while start < end {
+        let ch = text[start..end].chars().next().unwrap();
+        if is_trim_char(ch) {
+            start += ch.len_utf8();
+        } else {
+            break;
+        }
+    }
+    start
 }
 
 fn is_name_start(ch: char) -> bool {
